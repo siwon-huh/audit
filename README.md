@@ -52,7 +52,7 @@ MINIMUM_LIQUIDITY라는 고정값 변수를 사용해 초기 LP토큰 발행량�
 Low
 
 - 산정 이유
-    - DEX 서비스 자체의 효용성이 떨어진다.
+    - DEX 서비스 자체의 효용성이 떨어지는 버그이기 때문에 Low를 부여했다.
 - 공격 시나리오
     - 첫 유동성 공급자가 공급한 두 토큰의 곱이 1000000으로 나누어떨어지지 않는 경우 무조건 문제가 발생한다. 이 경우 LP토큰 발행량의 1000 wei 아래의 값은 모두 버려진다.
     - 다만 이러한 문제가 발생했을 경우 DEX 유동성 공급자들이 유동성을 회수할 때 공급한 양보다 약간 더 적은 양을 받게 된다.
@@ -114,6 +114,8 @@ transfer() 함수가 LP토큰을 mint해주는 중요한 역할을 하는 함수
 
 Critical
 
+- 산정 이유
+    - 누구든 접근할 수 있으며, 피해 규모 또한 크기 때문에 Critical을 부여했다.
 - 공격 시나리오
     - tester1이 유동성 공급을 전혀 하지 않은 상태에서 transfer() 함수를 통해 LP토큰을 자신에게 민팅하였고, 그 토큰을 이용해 유동성 풀에 공급된 전체 토큰을 탈취하였다.
     
@@ -168,42 +170,68 @@ Critical
     ```
     
 
-## 김남령
-
-## 1. Remove Liquidity Does Not Work on Proper Request
+## 3. Swap over tolerance
 
 ### 설명
 
-문제 코드: removeLiquidity 함수, 151번 줄
+문제 코드: Dex.sol swap 함수
 
-```jsx
-function removeLiquidity ... {
-	require(amountX >_minimumTokenXAmount && amountY>_minimumTokenYAmount, "INSUFFICIENT_LIQUIDITY_BURNED");
-}
-```
-
-miniminTokenAmount를 본인이 유동성 공급한 토큰만큼으로 설정할 시 에러를 발생시킨다.
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
 
 ### 파급력
 
 Informational
 
 - 산정 이유
-    - 컨트랙트의 효용성이 떨어지는 문제만 발생하기 때문에 Informational로 산정했다.
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
 
-### 해결방안
+### 해결 방법
 
-- 조건문에 등호를 추가한다.
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
 
-```jsx
-function removeLiquidity ... {
-	require(amountX >= _minimumTokenXAmount && amountY >= _minimumTokenYAmount, "INSUFFICIENT_LIQUIDITY_BURNED");
-}
-```
+## 권준우
 
-## 김영운
-
-## 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity(2)
 
 ### 설명
 
@@ -259,6 +287,414 @@ Critical
 ### 해결 방안
 
 - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
+
+## 3. No LP Token Minted
+
+### 설명
+
+문제 코드: Dex.sol addLiquidity 함수
+
+유동성 공급 및 회수에 실제 LP 토큰이 사용되는 것이 아닌 내부 전역변수의 state로 관리된다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - 유동성 공급을 하더라도 사용자에게 돌아오는 이득이 전혀 없다.
+    - 사용자에게 실질적인 이득이 없으니 DEX의 효용성이 떨어지는 문제이다.
+
+### 해결 방법
+
+- addLiquidity에서 LPToken_balances 등의 배열로 토큰의 수량을 저장하기보다는 mint, burn 등의 함수를 통해 실제로 토큰이 발급되고 회수되는 로직을 구현해야 한다.
+
+## 김남령
+
+## 1. Remove Liquidity Does Not Work on Proper Request
+
+### 설명
+
+문제 코드: removeLiquidity 함수, 151번 줄
+
+```jsx
+function removeLiquidity ... {
+	require(amountX >_minimumTokenXAmount && amountY>_minimumTokenYAmount, "INSUFFICIENT_LIQUIDITY_BURNED");
+}
+```
+
+miniminTokenAmount를 본인이 유동성 공급한 토큰만큼으로 설정할 시 에러를 발생시킨다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 컨트랙트의 효용성이 떨어지는 문제만 발생하기 때문에 Informational로 산정했다.
+
+### 해결방안
+
+- 조건문에 등호를 추가한다.
+
+```jsx
+function removeLiquidity ... {
+	require(amountX >= _minimumTokenXAmount && amountY >= _minimumTokenYAmount, "INSUFFICIENT_LIQUIDITY_BURNED");
+}
+```
+
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
+
+## 김영운
+
+## 1. No Imbalance Check on Add Liquidity(2)
+
+### 설명
+
+문제 코드: addLiquidity 함수 전체
+
+유동성 공급 시 유동성 풀 내의 토큰 비율을 검사하지 않는다.
+
+### 파급력
+
+Critical
+
+- 산정 이유
+    - Imbalance하게 유동성을 공급한 모두가 손해를 보며, 기존 유동성 공급자들은 그만큼의 이익을 나눠갖는다.
+    - Frontend에서 서비스 공급자가 실제 유동성 풀의 비율과 다르게 보여준 뒤, 유동성 공급자가 손해를 보도록 유도할 수 있다.
+- 공격 시나리오
+    - Imbalance한 유동성 공급이 가능하다.
+    - 하지만 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 더 적은 토큰을 기준으로 LP토큰이 발행된다.
+    
+    ```jsx
+    function testAddLiquidity2() external {
+      uint firstLPReturn = dex.addLiquidity(1000 ether, 1000 ether, 0);
+      emit log_named_uint("firstLPReturn", firstLPReturn);
+    
+      uint secondLPReturn = dex.addLiquidity(1 ether, 1000 ether, 0);
+      emit log_named_uint("secondLPReturn", secondLPReturn);
+    
+      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
+      emit log_named_uint("second LP remove", tx);
+      emit log_named_uint("second LP remove", ty);
+    
+      assertEq(tx, 1 ether);
+      assertEq(ty, 1000 ether);
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testAddLiquidity2() (gas: 276974)
+    Logs:
+      firstLPReturn: 1000000000000000000000
+      secondLPReturn: 1000000000000000000
+      second LP remove: 1000000000000000000
+      second LP remove: 1998001998001998001
+      Error: a == b not satisfied [uint]
+        Expected: 1000000000000000000000
+          Actual: 1998001998001998001
+    ```
+    
+- 공격 난이도
+    - 누구나 접근 가능하므로, 매우 쉽다.
+- 발생할 수 있는 피해
+    - imbalance하게 유동성 공급을 시도한 사람은 공급한 유동성의 상당량을 회수할 수 없게 된다.
+
+### 해결 방안
+
+- addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
+
+## 김지우
+
+## 1. No Imbalance Check on Add Liquidity(2)
+
+### 설명
+
+문제 코드: addLiquidity 함수 전체
+
+유동성 공급 시 유동성 풀 내의 토큰 비율을 검사하지 않는다.
+
+### 파급력
+
+Critical
+
+- 산정 이유
+    - Imbalance하게 유동성을 공급한 모두가 손해를 보며, 기존 유동성 공급자들은 그만큼의 이익을 나눠갖는다.
+    - Frontend에서 서비스 공급자가 실제 유동성 풀의 비율과 다르게 보여준 뒤, 유동성 공급자가 손해를 보도록 유도할 수 있다.
+- 공격 시나리오
+    - Imbalance한 유동성 공급이 가능하다.
+    - 하지만 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 더 적은 토큰을 기준으로 LP토큰이 발행된다.
+    
+    ```jsx
+    function testAddLiquidity2() external {
+      uint firstLPReturn = dex.addLiquidity(1000 ether, 1000 ether, 0);
+      emit log_named_uint("firstLPReturn", firstLPReturn);
+    
+      uint secondLPReturn = dex.addLiquidity(1 ether, 1000 ether, 0);
+      emit log_named_uint("secondLPReturn", secondLPReturn);
+    
+      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
+      emit log_named_uint("second LP remove", tx);
+      emit log_named_uint("second LP remove", ty);
+    
+      assertEq(tx, 1 ether);
+      assertEq(ty, 1000 ether);
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testAddLiquidity2() (gas: 274175)
+    Logs:
+      firstLPReturn: 1000000000000000000000
+      secondLPReturn: 1000000000000000000
+      second LP remove: 1000000000000000000
+      second LP remove: 1998001998001998001
+      Error: a == b not satisfied [uint]
+            Left: 1998001998001998001
+           Right: 1000000000000000000000
+    ```
+    
+- 공격 난이도
+    - 누구나 접근 가능하므로, 매우 쉽다.
+- 발생할 수 있는 피해
+    - imbalance하게 유동성 공급을 시도한 사람은 공급한 유동성의 상당량을 회수할 수 없게 된다.
+
+### 해결 방안
+
+- addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
 
 ## 김한기
 
@@ -503,9 +939,243 @@ Informational
 - setPrice에서 decimal로 나누지 않아야 한다.
 - 나눗셈 등 decimal이 직접적으로 사용되지 않아도 되는 부분에서의 사용을 지양해야 한다.
 
+## 서준원
+
+## 1. No Imbalance Check on Add Liquidity(1)
+
+### 설명
+
+문제 코드: addLiquidity 함수 전체
+
+유동성 공급 시 유동성 풀 내의 토큰 비율을 검사하지 않는다. 또한 LP토큰 발행량 계산시 tokenX의 양만을 고려해 발행하기 때문에, Y의 양을 아무리 적게 넣더라도 X의 양에 비례한 LPToken을 발행받는다.
+
+```jsx
+
+function addLiquidity ... {
+	...
+	if(totalSupply() == 0){ LPTokenAmount = tokenXAmount * tokenYAmount / 10**18;} else{ LPTokenAmount = totalSupply() * tokenXAmount / reserveX;}
+
+	require(minimumLPTokenAmount <= LPTokenAmount)
+	...
+}
+```
+
+### 파급력
+
+Critical
+
+- 산정 이유
+    - 접근성이 매우 높고 피해 규모 또한 크다.
+- 공격 시나리오
+    - 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 공급하지 않은 Y토큰까지 탈취가 가능하다.
+    - 아래 코드에서 TokenY는 1 ether만 공급하지만 LP토큰으로 회수하는 양은 500.5 ether이다.
+    
+    ```jsx
+    function testAddLiquidity() external {
+      uint firstLPReturn = dex.addLiquidity(1000 ether, 1000 ether, 0);
+      emit log_named_uint("firstLPReturn", firstLPReturn);
+    
+      uint secondLPReturn = dex.addLiquidity(1000 ether, 1 ether, 0);
+      emit log_named_uint("secondLPReturn", secondLPReturn);
+    
+      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
+      emit log_named_uint("second LP remove", tx);
+      emit log_named_uint("second LP remove", ty);
+    
+      assertEq(tx, 1000 ether);
+      assertEq(ty, 1 ether);
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testAddLiquidity1() (gas: 230416)
+    Logs:
+      firstLPReturn: 1000000000000000000000000
+      secondLPReturn: 1000000000000000000000000
+      second LP remove: 1000000000000000000000
+      second LP remove: 500500000000000000000
+      Error: a == b not satisfied [uint]
+            Left: 500500000000000000000
+           Right: 1000000000000000000
+    ```
+    
+- 공격 난이도
+    - 누구나 접근 가능하므로, 매우 쉽다.
+- 발생할 수 있는 피해
+    - 유동성 공급 여부와 상관없이 누구나 유동성 토큰을 발행할 수 있으며, 발행한 토큰의 양만큼 회수가 가능하다. 따라서 DEX에 공급된 자산 전부를 탈취할 수 있다.
+
+### 해결 방안
+
+- addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+
+```jsx
+require(reserveX * tokenYAmount == reserveY * tokenXAmount);
+```
+
+## 서지혜
+
+## 1. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```java
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
+
+## 이성휘
+
+## 1. Improper Implementation of Liquidity
+
+### 설명
+
+LP토큰을 발행하고 회수하는 공식이 제대로 설계되어 있지 않다.
+
+addLiquidity, removeLiquidity가 LP토큰에 대한 지분을 올바르게 반환하지 않는다.
+
+구현된 로직에 따르면 LP토큰의 발행량이 토큰의 양보다는 유동성 공급 순서에 더 dependent하며, 마지막에 addLiquidity를 수행한 사람이 가장 많은 지분을 가져간다.
+
+### 파급력
+
+Critical
+
+- 산정 이유
+    - 유동성을 공급하는 순간 DEX가 제 기능을 하지 못하고 망가진다.
+    - 공급자 간의 토큰량이 차이가 많을수록 LP토큰으로 회수할 수 있는 토큰과 실제 공급한 토큰 사이의 오차가 더 커진다.
+- 공격 시나리오
+    
+    ```jsx
+    function testAddLiquidity() external {
+      uint firstLPReturn = dex.addLiquidity(5000 ether, 1000 ether, 0);
+      emit log_named_uint("firstLPReturn", firstLPReturn);
+    
+      uint secondLPReturn = dex.addLiquidity(1000 ether, 200 ether, 0);
+      emit log_named_uint("secondLPReturn", secondLPReturn);
+    
+      uint thirdLPReturn = dex.addLiquidity(10 ether, 2 ether, 0);
+      emit log_named_uint("thirdLPReturn", thirdLPReturn);
+    
+      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
+      emit log_named_uint("second LP remove", tx);
+      emit log_named_uint("second LP remove", ty);
+    
+      (uint tx2, uint ty2) = dex.removeLiquidity(thirdLPReturn, 0, 0);
+      emit log_named_uint("third LP remove", tx2);
+      emit log_named_uint("third LP remove", ty2);
+    
+      assertEq(tx, 1000 ether);
+      assertEq(ty, 200 ether);
+      assertEq(tx2, 10 ether);
+      assertEq(ty2, 2 ether);
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testAddLiquidity() (gas: 648904)
+    Logs:
+      firstLPReturn: 2236067977499789696409
+      secondLPReturn: 11180339887498948482045
+      thirdLPReturn: 6708203932499369089227000
+      second LP remove: 9996673320026600000
+      second LP remove: 1999334664005300000
+      third LP remove: 6010000000000000000000
+      third LP remove: 1202000000000000000000
+      Error: a == b not satisfied [uint]
+            Left: 9996673320026600000
+           Right: 1000000000000000000000
+      Error: a == b not satisfied [uint]
+            Left: 1999334664005300000
+           Right: 200000000000000000000
+      Error: a == b not satisfied [uint]
+            Left: 6010000000000000000000
+           Right: 10000000000000000000
+      Error: a == b not satisfied [uint]
+            Left: 1202000000000000000000
+           Right: 2000000000000000000
+    ```
+    
+    - 두 공급자 모두 자신이 넣은 것과는 다른 양의 토큰을 회수하였다. 전체 유동성의 20%를 공급한 사람은 공급한 토큰의 1%만 회수하였고, 가장 적은 양을 공급한 사람은 공급량의 6000%를 회수하였다.
+- 공격 난이도
+    - 유동성 공급자 모두 공격을 수행할 수 있지만, 가장 마지막에 유동성을 공급한 사람이 거의 모든 지분을 가져갈 수 있어 경쟁적일 수 있다.
+
+### 해결 방안
+
+- addLiquidity, removeLiquidity 함수를 로직에 맞게 다시 구현해야한다.
+
+## 2. No LP Token Minted
+
+### 설명
+
+문제 코드: Dex.sol addLiquidity 함수
+
+유동성 공급 및 회수에 실제 LP 토큰이 사용되는 것이 아닌 내부 전역변수의 state로 관리된다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - 유동성 공급을 하더라도 사용자에게 돌아오는 이득이 전혀 없다.
+    - 사용자에게 실질적인 이득이 없으니 DEX의 효용성이 떨어지는 문제이다.
+
+### 해결 방법
+
+- addLiquidity에서 LPToken_balances 등의 배열로 토큰의 수량을 저장하기보다는 mint, burn 등의 함수를 통해 실제로 토큰이 발급되고 회수되는 로직을 구현해야 한다.
+
 ## 임나라
 
-## 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity(2)
 
 ### 설명
 
@@ -562,9 +1232,68 @@ Critical
 
 - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
 
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
+
 ## 최영현
 
-## 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity(1)
 
 ### 설명
 
@@ -591,11 +1320,11 @@ Critical
     - 접근성이 매우 높고 피해 규모 또한 크다.
 - 공격 시나리오
     - 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 공급하지 않은 Y토큰까지 탈취가 가능하다.
-    - 아래 코드에서 TokenY는 1 ether만 공급하지만 LP토큰으로 회수하는 양은 667.3.. ether이다.
+    - 아래 코드에서 TokenY는 1 ether만 공급하지만 LP토큰으로 회수하는 양은 500.5 ether이다.
     
     ```jsx
     function testAddLiquidity() external {
-      uint firstLPReturn = dex.addLiquidity(500 ether, 1000 ether, 0);
+      uint firstLPReturn = dex.addLiquidity(1000 ether, 1000 ether, 0);
       emit log_named_uint("firstLPReturn", firstLPReturn);
     
       uint secondLPReturn = dex.addLiquidity(1000 ether, 1 ether, 0);
@@ -611,14 +1340,14 @@ Critical
     ```
     
     ```jsx
-    [FAIL. Reason: Assertion failed.] testAddLiquidity1() (gas: 230413)
+    [FAIL. Reason: Assertion failed.] testAddLiquidity1() (gas: 230416)
     Logs:
-      firstLPReturn: 500000000000000000000000
+      firstLPReturn: 1000000000000000000000000
       secondLPReturn: 1000000000000000000000000
       second LP remove: 1000000000000000000000
-      second LP remove: 667333333333333333333
+      second LP remove: 500500000000000000000
       Error: a == b not satisfied [uint]
-            Left: 667333333333333333333
+            Left: 500500000000000000000
            Right: 1000000000000000000
     ```
     
@@ -634,6 +1363,65 @@ Critical
 ```jsx
 require(reserveX * tokenYAmount == reserveY * tokenXAmount);
 ```
+
+## 2. Swap over tolerance
+
+### 설명
+
+문제 코드: Dex.sol swap 함수
+
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
+
+### 파급력
+
+Informational
+
+- 산정 이유
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
+- 공격 시나리오
+    
+    ```jsx
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
+    
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
+    
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
+    
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
+    }
+    ```
+    
+    ```jsx
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
+    Logs:
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
+    ```
+    
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+- 공격 난이도
+    - 공격자를 요하지 않는 내부 로직 문제이다.
+
+### 해결 방법
+
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
 
 ## 황준태
 
@@ -694,61 +1482,61 @@ Critical
 
 - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
 
-## 김지우
-
-## 1. No Imbalance Check on Add Liquidity
+## 2. Swap over tolerance
 
 ### 설명
 
-문제 코드: addLiquidity 함수 전체
+문제 코드: Dex.sol swap 함수
 
-유동성 공급 시 유동성 풀 내의 토큰 비율을 검사하지 않는다.
+swap의 규모가 커질 경우 0.01%의 tolerance를 벗어난 거래가 발생한다.
 
 ### 파급력
 
-Critical
+Informational
 
 - 산정 이유
-    - Imbalance하게 유동성을 공급한 모두가 손해를 보며, 기존 유동성 공급자들은 그만큼의 이익을 나눠갖는다.
-    - Frontend에서 서비스 공급자가 실제 유동성 풀의 비율과 다르게 보여준 뒤, 유동성 공급자가 손해를 보도록 유도할 수 있다.
+    - 외부 공격이 아닌 컨트랙트 자체의 문제점이다.
+    - swap의 규모가 매우 클 때만 발생한다.
+    - swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
 - 공격 시나리오
-    - Imbalance한 유동성 공급이 가능하다.
-    - 하지만 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 더 적은 토큰을 기준으로 LP토큰이 발행된다.
     
     ```jsx
-    function testAddLiquidity2() external {
-      uint firstLPReturn = dex.addLiquidity(1000 ether, 1000 ether, 0);
-      emit log_named_uint("firstLPReturn", firstLPReturn);
+    function testSwap1() external {
+      dex.addLiquidity(3000 ether, 4000 ether, 0);
+      dex.addLiquidity(30000 ether * 2, 40000 ether * 2, 0);
     
-      uint secondLPReturn = dex.addLiquidity(1 ether, 1000 ether, 0);
-      emit log_named_uint("secondLPReturn", secondLPReturn);
+      // x -> y
+      uint output = dex.swap(60000 ether, 0, 0);
     
-      (uint tx, uint ty) = dex.removeLiquidity(secondLPReturn, 0, 0);
-      emit log_named_uint("second LP remove", tx);
-      emit log_named_uint("second LP remove", ty);
+      uint poolAmountX = 60000 ether + 3000 ether;
+      uint poolAmountY = 80000 ether + 4000 ether;
     
-      assertEq(tx, 1 ether);
-      assertEq(ty, 1000 ether);
+      int expectedOutput = -(int(poolAmountX * poolAmountY) / int(poolAmountX + 60000 ether)) + int(poolAmountY);
+      expectedOutput = expectedOutput * 999 / 1000; // 0.1% fee
+      uint uExpectedOutput = uint(expectedOutput);
+    
+      emit log_named_int("expected output", expectedOutput);
+      emit log_named_uint("real output", output);
+    
+      bool success = output <= (uExpectedOutput * 10001 / 10000) && output >= (uExpectedOutput * 9999 / 10000); // allow 0.01%;
+      assertTrue(success, "Swap test fail 1; expected != return");
     }
     ```
     
     ```jsx
-    [FAIL. Reason: Assertion failed.] testAddLiquidity2() (gas: 274175)
+    [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
     Logs:
-      firstLPReturn: 1000000000000000000000
-      secondLPReturn: 1000000000000000000
-      second LP remove: 1000000000000000000
-      second LP remove: 1998001998001998001
-      Error: a == b not satisfied [uint]
-            Left: 1998001998001998001
-           Right: 1000000000000000000000
+      expected output: 40934634146341463414634
+      real output: 40954612005856515373352
+      Error: Swap test fail 1; expected != return
+      Error: Assertion Failed
     ```
     
+    - 매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
 - 공격 난이도
-    - 누구나 접근 가능하므로, 매우 쉽다.
-- 발생할 수 있는 피해
-    - imbalance하게 유동성 공급을 시도한 사람은 공급한 유동성의 상당량을 회수할 수 없게 된다.
+    - 공격자를 요하지 않는 내부 로직 문제이다.
 
-### 해결 방안
+### 해결 방법
 
-- addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+- 기존 컨트랙트는 스왑할 토큰의 양에서 0.01%를 제한 만큼을 스왑시킨 결과값을 사용하고 있다.
+- 스왑할 토큰의 양을 그대로 두고 나온 값에서 0.01%를 제한 로직으로 바꾸면 해결된다.
