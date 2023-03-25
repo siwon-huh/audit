@@ -4,30 +4,30 @@
 
 ## 공통 문제
 
-## Error on calculating initial LP token volume
+### Error on calculating initial LP token volume
 
-### 설명
+#### 설명
 
 문제 코드: Dex.sol addLiquidity 내 sqrt()
 
 sqrt 사용으로 인한 오차가 발생하고, 이로 인해 공급한 토큰과 LP토큰으로 회수할 수 있는 토큰의 양에 오차가 생긴다.
 
-### 파급력
+#### 파급력
 
 Informational
 
 - 오차의 크기가 매우 작기 때문에 실질적인 문제는 거의 없다.
 
-### 해결방안
+#### 해결방안
 
 - LP토큰의 첫 발행시에만 발생하는 문제로, 첫 발행시에 토큰의 양을 적게 하면 오차를 줄일 수 있다.
 - Solidity 자체의 문제로, 완전한 해결이 불가능하다.
 
 ## 구민재
 
-## Initial liquidity under 1000 wei gets rounded
+### Initial liquidity under 1000 wei gets rounded
 
-### 설명
+#### 설명
 
 문제 코드: Dex.sol line8, 31
 
@@ -46,7 +46,7 @@ MINIMUM_LIQUIDITY라는 고정값 변수를 사용해 초기 LP토큰 발행량�
 
 첫 LP토큰 발행시 1000 미만의 값은 버려지게 된다.
 
-### 파급력
+#### 파급력
 
 Medium
 
@@ -95,19 +95,19 @@ Medium
 - 발생할 수 있는 피해
     - 유동성 공급자들이 제 공급량을 찾아가지 못하므로 DEX의 사용성이 매우 떨어진다.
 
-### 해결 방안
+#### 해결 방안
 
 - 문제가 되는 코드에서 MINIMUM_LIQUIDITY 변수를 삭제하면 해결 가능하다.
 
 ### No authority check for LP mint
 
-### 설명
+#### 설명
 
 문제 코드: Dex.sol line106
 
 transfer() 함수가 LP토큰을 mint해주는 중요한 역할을 하는 함수임에도 불구하고 권한 체크를 해주지 않았다. 따라서 누구나 접근 가능하며, 원하는 만큼의 LP토큰을 발행하고 그만큼 유동성 풀에 공급된 토큰을 탈취할 수 있다.
 
-### 파급력
+#### 파급력
 
 Critical
 
@@ -152,7 +152,7 @@ Critical
 - 발생할 수 있는 피해
     - 유동성 공급 여부와 상관없이 누구나 유동성 토큰을 발행할 수 있으며, 발행한 토큰의 양만큼 회수가 가능하다. 따라서 DEX에 공급된 자산 전부를 탈취할 수 있다.
 
-### 해결 방안
+#### 해결 방안
 
 - transfer 함수의 접근 권한을 address(this)로 제한하면 해결된다.
     
