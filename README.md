@@ -190,7 +190,6 @@ function addLiquidity ... {
 Critical
 
 - 공격 시나리오
-    - X토큰만 충분히 넣어서 minimumLPTokenAmount 조건을 만족시키면 유동성을 공급할 수 있다.
     - 유동성 공급 이후 발행된 LP토큰으로 removeLiquidity를 수행하면 공급하지 않은 Y토큰까지 탈취가 가능하다.
     - 아래 코드에서 TokenY는 1 ether만 공급하지만 LP토큰으로 회수하는 양은 667.3.. ether이다.
     
