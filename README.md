@@ -39,7 +39,7 @@ function addLiquidity ... {
   if (_totalSupply == 0) {
     LPTokenAmount = _sqrt((tokenXAmount + reserveX) * (tokenYAmount + reserveY) / MINIMUM_LIQUIDITY);
 	...
-        }
+  }
 ```
 
 MINIMUM_LIQUIDITY라는 고정값 변수를 사용해 초기 LP토큰 발행량을 결정했다.
