@@ -4,7 +4,7 @@
 
 ## 공통 문제
 
-## Error on calculating initial LP token volume
+## 1. Error on calculating initial LP token volume
 
 ### 설명
 
