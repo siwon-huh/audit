@@ -25,7 +25,7 @@ Informational
 
 ## 구민재
 
-## Initial liquidity under 1000 wei gets rounded
+## 1. Initial liquidity under 1000 wei gets rounded
 
 ### 설명
 
@@ -99,7 +99,7 @@ Medium
 
 - 문제가 되는 코드에서 MINIMUM_LIQUIDITY 변수를 삭제하면 해결 가능하다.
 
-## No authority check for LP mint
+## 2. No authority check for LP mint
 
 ### 설명
 
@@ -166,7 +166,7 @@ Critical
 
 ## 최영현
 
-### No Imbalance Check on Add Liquidity
+### 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -239,7 +239,7 @@ require(reserveX * tokenYAmount == reserveY * tokenXAmount);
 
 ## 황준태
 
-### No Imbalance Check on Add Liquidity
+### 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -297,7 +297,7 @@ Low
 
 ## 임나라
 
-### No Imbalance Check on Add Liquidity
+### 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -355,7 +355,7 @@ Low
 
 ## 김남령
 
-### No Imbalance Check on Add Liquidity
+### 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -413,7 +413,7 @@ Low
 
 ## 김한기
 
-## Error on Setting Price of Tokens
+## 1. Error on Setting Price of Tokens
 
 ### 설명
 
