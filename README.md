@@ -355,7 +355,7 @@ Low
 
 ## 김남령
 
-### 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
