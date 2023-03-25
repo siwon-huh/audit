@@ -229,6 +229,6 @@ Critical
 #### 해결 방안
     - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
     
-    ```jsx
-    require(reserveX * tokenYAmount == reserveY * tokenXAmount);
-    ```
+```jsx
+require(reserveX * tokenYAmount == reserveY * tokenXAmount);
+```
