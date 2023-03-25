@@ -166,7 +166,7 @@ Critical
 
 ## 최영현
 
-### 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -239,7 +239,7 @@ require(reserveX * tokenYAmount == reserveY * tokenXAmount);
 
 ## 황준태
 
-### 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
@@ -297,7 +297,7 @@ Low
 
 ## 임나라
 
-### 1. No Imbalance Check on Add Liquidity
+## 1. No Imbalance Check on Add Liquidity
 
 ### 설명
 
