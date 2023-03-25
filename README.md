@@ -227,7 +227,8 @@ Critical
 - 발생할 수 있는 피해
     - 토큰 X가 충분하다면 swap이 아닌 유동성 공급과 제거만으로 유동성 풀에 존재하는 토큰 Y를 모두 탈취할 수 있다.
 #### 해결 방안
-    - addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
+
+- addLiquidity 함수 실행시 유동성 풀에 있는 토큰의 비율을 검사하는 코드가 필요하다.
     
 ```jsx
 require(reserveX * tokenYAmount == reserveY * tokenXAmount);
