@@ -124,7 +124,8 @@ Critical
 
 문제 코드: DreamAcademyLending.sol 내 liquidate함수, 111번 줄
 
--   Liquidation threshold를 계산하는 과정이 잘못되었다.
+-   Liquidation threshold를 계산하는 과정이 잘못되었다. 담보가 아닌 ETH의 가격을 기준으로 청산 기준을 결정하였다.
+-   또한 등호를 추가해야 한다.
 
 ```java
 uint price = vaults[_user].borrowUSDC * (oracle.getPrice(address(0x0))/oracle.getPrice(_tokenAddress));
@@ -140,14 +141,14 @@ require(price > oracle.getPrice(address(0x0))*75/100);
 High
 
 -   산정 이유
-    -   담보가치가 급격히 떨어지지 않는 한 누구의 자산이든 청산을 요구할 수 있다.
-    -   담보를 1 ETH로 고정해두었기 때문에 높은 가치의 자산일수록 청산되기 쉽다.
     -   DEX의 효용성을 매우 떨어뜨리며, 공격의 접근성이 아주 높다.
+    -   담보를 1 ETH로 고정해두었기 때문에 부채가 클수록 청산되기 쉽다.
+
 
 ### 해결 방안
 
--   부등호의 방향을 바꿔야 하며, 1 ETH가 아닌 실제 담보가치가 부채보다 25% 이상 낮을 경우 청산이 시작되도록 고친다.
+-   등호를 추가해야 하며, 1 ETH가 아닌 실제 담보가치가 부채보다 25% 이상 낮을 경우 청산이 시작되도록 고친다.
 
 ```java
-require(price <= ${Collateral_Amount} * oracle.getPrice(address(0x0)) * 75/100);
+require(price >= ${Collateral_Amount} * oracle.getPrice(address(0x0)) * 75/100);
 ```
