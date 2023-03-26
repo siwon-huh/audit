@@ -152,3 +152,4 @@ High
 ```java
 require(price >= ${Collateral_Amount} * oracle.getPrice(address(0x0)) * 75/100);
 ```
+ 
