@@ -10,9 +10,8 @@
 
 ```java
 function withdraw (address tokenAddress, uint256 amount) ... {
-	...
-
-	amount = getAccruedSupplyAmount(tokenAddress) / WAD * WAD;
+  ...
+  amount = getAccruedSupplyAmount(tokenAddress) / WAD * WAD;
   userBalances[msg.sender].balance += amount - userBalances[msg.sender].balance;
   ERC20(usdc).transfer(msg.sender, amount);
   userBalances[msg.sender].balance -= amount;
@@ -63,9 +62,9 @@ Medium
 
 ```java
 function withdraw (address tokenAddress, uint256 amount) ... {
-	...
+  ...
 
-	amount = getAccruedSupplyAmount(tokenAddress) / WAD * WAD;
+  amount = getAccruedSupplyAmount(tokenAddress) / WAD * WAD;
   userBalances[msg.sender].balance += amount - userBalances[msg.sender].balance;
   ERC20(usdc).transfer(msg.sender, amount);
   userBalances[msg.sender].balance -= amount;
