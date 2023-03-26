@@ -12,7 +12,7 @@ withdraw 함수에서 예치한 이더리움 담보를 보낼 때 담보에 대�
 
 ```java
 function withdraw(address tokenAddress, uint256 amount) external {
-	_createBook(msg.sender);
+  _createBook(msg.sender);
 
   _updateInterest();
 
