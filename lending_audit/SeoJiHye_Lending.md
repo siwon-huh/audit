@@ -7,7 +7,8 @@
 문제 코드: DreamAcademyLending.sol 내 liquidate함수, 137번 줄
 
 ```java
-require(_etherHolders[user]._borrowAmount < 100 ether || amount == _etherHolders[user]._borrowAmount / 4, "only liquidating 25% possible")
+require(_etherHolders[user]._borrowAmount < 100 ether || 
+amount == _etherHolders[user]._borrowAmount / 4, "only liquidating 25% possible")
 ```
 
 -   Liquidation amount가 빌린 토큰의 4분의 1로 고정되어 있다.
@@ -26,5 +27,6 @@ Low
 -   amount를 \_borrow[user]/4 이하로 설정하면 된다.
 
 ```java
-require(_etherHolders[user]._borrowAmount < 100 ether || amount **<=** _etherHolders[user]._borrowAmount / 4, "only liquidating 25% possible")
+require(_etherHolders[user]._borrowAmount < 100 ether || 
+amount **<=** _etherHolders[user]._borrowAmount / 4, "only liquidating 25% possible")
 ```
