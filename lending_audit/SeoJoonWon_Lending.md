@@ -1,6 +1,6 @@
 ## 서준원
 
-## 1. Lending Under Ether-level produces Interest Error
+## 1. Lending Under Ether-level Produces Interest Error
 
 ### 설명
 
