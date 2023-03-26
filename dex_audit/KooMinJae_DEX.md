@@ -32,6 +32,7 @@ Low
     -   첫 유동성 공급자가 공급한 두 토큰의 곱이 1000000으로 나누어떨어지지 않는 경우 무조건 문제가 발생한다. 이 경우 LP토큰 발행량의 1000 wei 아래의 값은 모두 버려진다.
     -   다만 이러한 문제가 발생했을 경우 DEX 유동성 공급자들이 유동성을 회수할 때 공급한 양보다 약간 더 적은 양을 받게 된다.
     -   DEX 서비스 자체에 문제가 생기기 때문에 Medium를 부여했다.
+
         ```jsx
         function testAddLiquidity1() external {
           uint firstLPReturn = dex.addLiquidity(500 ether, 1 ether, 0);
@@ -49,6 +50,7 @@ Low
         }
 
         ```
+
         ```jsx
         [FAIL. Reason: Assertion failed.] testAddLiquidity1() (gas: 258781)
         Logs:
@@ -135,7 +137,7 @@ Critical
 -   transfer 함수의 접근 권한을 address(this)로 제한하면 해결된다.
     ```jsx
     function transfer(address to, uint256 lpAmount) public override(ERC20, IDex) returns (bool) {
-      require(tx.origin == address(this), "you are not authorized");
+      require(msg.sender == address(this), "you are not authorized");
       _mint(to, lpAmount);
       return true;
     }
@@ -158,6 +160,7 @@ Informational
     -   swap의 규모가 매우 클 때만 발생한다.
     -   swap 최대치인 60000 ether일 경우에도 0.05%의 fee를 발생시켰다.
 -   공격 시나리오
+
     ```jsx
     function testSwap1() external {
       dex.addLiquidity(3000 ether, 4000 ether, 0);
@@ -180,6 +183,7 @@ Informational
       assertTrue(success, "Swap test fail 1; expected != return");
     }
     ```
+
     ```jsx
     [FAIL. Reason: Assertion failed.] testSwap1() (gas: 245828)
     Logs:
@@ -188,7 +192,9 @@ Informational
       Error: Swap test fail 1; expected != return
       Error: Assertion Failed
     ```
+
     -   매우 큰 양의 토큰을 스왑시키면 0.01%를 넘어가는 수수료가 발생한다.
+
 -   공격 난이도
     -   공격자를 요하지 않는 내부 로직 문제이다.
 
