@@ -79,7 +79,7 @@ Informational
 
 -   산정 이유
     -   손해보는 사람이 없으며, 기능상의 구현 부족으로 판단된다.
-
+ 
 ### 해결 방안
 
 -   amount 값을 구할 때 getAccruedSupplyAmount의 결과값을 amount / 현재까지의 usdc 토큰 공급량으로 비율을 계산해주어야 한다.
