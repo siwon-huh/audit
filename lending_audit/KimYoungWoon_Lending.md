@@ -35,6 +35,7 @@ Medium
       vm.startPrank(address(0x03));
           usdc.approve(address(lending), 10 ether);
           lending.deposit(address(usdc), 10 ether);
+          ...
           lending.withdraw(address(usdc), 0.1 ether);
       vm.stopPrank();
       console.log(usdc.balanceOf(address(0x03)));
