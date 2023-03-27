@@ -27,7 +27,7 @@ function withdraw (address tokenAddress, uint256 amount) ... {
 Medium
 
 -   산정 이유
-    -   DEX의 효용성을 낮추는 문제이고, 피해 규모가 유동성 공급 토큰의 가치에 따라 달라질 수 있으므로 를 부여했다.
+    -   DEX의 효용성을 낮추는 문제이고, 피해 규모가 유동성 공급 토큰의 가치에 따라 달라질 수 있으므로 Medium을 부여했다.
 -   공격 시나리오
     ```java
     function testwithdrawtest() external {
@@ -46,7 +46,6 @@ Medium
       10000000000000000000
     ```
     -   10 ether의 USDC를 유동성으로 공급하고, 0.1 ether USDC 만큼의 이자를 요청해도 이를 지급하지 않는다.
-    -   또한
 -   공격 난이도
     -   유동성을 공급한 모두에게 해당되며, 1 ether 수수료 및 원금은 회수가 불가능해진다.
 
