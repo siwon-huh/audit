@@ -258,7 +258,8 @@ Informational
 
 - addLiquidity에서 LPToken_balances 등의 배열로 토큰의 수량을 저장하기보다는 mint, burn 등의 함수를 통해 실제로 토큰이 발급되고 회수되는 로직을 구현해야 한다.
 
-## 김남령
+## 
+
 
 ## 1. Remove Liquidity Does Not Work on Proper Request
 
@@ -1280,7 +1281,7 @@ uint price = vaults[_user].borrowUSDC * (oracle.getPrice(address(0x0))/oracle.ge
 require(price > oracle.getPrice(address(0x0))*75/100);
 ```
 
-- 빌린 USDC의 가치를 ETH 기준으로 환산한 값과 현재 ETH 가격을 비교해서 75% 이하인 경우 청산을 시작한다.
+- 빌린 USDC의 가치를 ETH 기준으로 환산한 값과 현재 ETH 가격을 비교해서 75% 이상인 경우 청산을 시작한다.
 - Liquidation은 빌린 돈의 가치가 “담보”의 75% 아래일 때를 기준으로 계산해야 한다.
 - 현재는 담보를 1 ETH로 가정하고 식을 세웠다.
 
@@ -1296,10 +1297,10 @@ High
 
 ### 해결 방안
 
-- 부등호의 방향을 바꿔야 하며, 1 ETH가 아닌 실제 담보가치가 부채보다 25% 이상 낮을 경우 청산이 시작되도록 고친다.
+- 등호를 추가해야 하며, 1 ETH가 아닌 실제 담보가치가 부채보다 25% 이상 낮을 경우 청산이 시작되도록 고친다.
 
 ```java
-require(price <= ${Collateral_Amount} * oracle.getPrice(address(0x0)) * 75/100);
+require(price >= ${Collateral_Amount} * oracle.getPrice(address(0x0)) * 75/100);
 ```
 
 ## 문성훈
